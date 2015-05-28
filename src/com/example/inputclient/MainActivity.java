@@ -1,7 +1,10 @@
 package com.example.inputclient;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Set;
 import java.util.UUID;
 
@@ -17,6 +20,7 @@ import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentTransaction;
 import android.util.Log;
+import android.view.MotionEvent;
 import android.widget.TabHost;
 import android.widget.TabHost.TabSpec;
 import android.widget.Toast;
@@ -24,7 +28,7 @@ import android.widget.Toast;
 public class MainActivity extends FragmentActivity {
 
 	private TabHost mTabHost=null;
-	public final static String TAG = "ImageTransferHelper";
+	public final static String TAG = "InputTest";
 	public static final int REQUEST_TO_ENABLE_BT = 100;
 	private BluetoothAdapter mBluetoothAdapter;
 	private UUID MY_UUID = UUID
@@ -32,13 +36,18 @@ public class MainActivity extends FragmentActivity {
 	private final static String CBT_SERVER_DEVICE_NAME = "IM-T100K";
 	private BluetoothSocket sock;
 	
+	private ArrayList<EventData> queue=new ArrayList<MainActivity.EventData>();
 	
+	private class EventData{
+		float x;
+		float y;
+	}
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);
 		
-		mTabHost=(TabHost)findViewById(R.id.tabhost);
+/*		mTabHost=(TabHost)findViewById(R.id.tabhost);
 		mTabHost.setup();
 		TabHost.OnTabChangeListener tabChangeListener = new TabHost.OnTabChangeListener() {
 			 
@@ -51,43 +60,41 @@ public class MainActivity extends FragmentActivity {
                 
                 FragmentTransaction ft = fm.beginTransaction();
  
-                /** Detaches the androidfragment if exists */
                 if(one!=null)
                     ft.detach(one);
-                /** Detaches the applefragment if exists */
                 if(two !=null)
                     ft.detach(two);
                 if(three !=null)
                 		ft.detach(three);
                 
  
-                /** If current tab is android */
+                
                 if(tabId.equalsIgnoreCase("TAB1")){
  
                     if(one==null){
-                        /** Create AndroidFragment and adding to fragmenttransaction */
+                       
                         ft.add(R.id.content,new OneFragment(), "TAB1");
                     }else{
-                        /** Bring to the front, if already exists in the fragmenttransaction */
+                        
                        // ft.replace(R.id.content,one);
                     	ft.attach(one);
                     }
  
-                }else if(tabId.equalsIgnoreCase("TAB2")){    /** If current tab is apple */
+                }else if(tabId.equalsIgnoreCase("TAB2")){  
                     if(two==null){
-                        /** Create AppleFragment and adding to fragmenttransaction */
+                       
                         ft.add(R.id.content,new TwoFragment(), "TAB2");
                      }else{
-                        /** Bring to the front, if already exists in the fragmenttransaction */
+                        
                         //ft.replace(R.id.content, two);
                     	 ft.attach(two);
                     }
                 }else{
                 	if(three==null){
-                        /** Create AppleFragment and adding to fragmenttransaction */
+                       
                         ft.add(R.id.content,new ThreeFragment(), "TAB3");
                      }else{
-                        /** Bring to the front, if already exists in the fragmenttransaction */
+                        
                         ft.replace(R.id.content, three);
                     }
                 }
@@ -111,10 +118,10 @@ public class MainActivity extends FragmentActivity {
         ts3.setContent(new DummyTabContent(getBaseContext()));
         mTabHost.addTab(ts3);
  
-       mTabHost.setCurrentTab(0);
+       mTabHost.setCurrentTab(0);*/
 		mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
 		
-	/*	if (mBluetoothAdapter == null) {
+		if (mBluetoothAdapter == null) {
 			Log.v(TAG, "Device does not support Bluetooth");
 		} else {
 			if (!mBluetoothAdapter.isEnabled()) {
@@ -133,7 +140,19 @@ public class MainActivity extends FragmentActivity {
 				// find devices that have been paired
 				getBondedDevices();
 			}
-		}*/
+		}
+	}
+	@Override
+	public boolean onTouchEvent(MotionEvent event) {
+		// TODO Auto-generated method stub
+		super.onTouchEvent(event);
+		EventData data=new EventData();
+		data.x=event.getX();
+		data.y=event.getY();
+		
+		Log.d(TAG, "touch x:"+data.x + "y:"+data.y);
+		queue.add(data);
+		return true;
 	}
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -205,12 +224,13 @@ public class MainActivity extends FragmentActivity {
 	}
 
 	private class ConnectThread extends Thread {
-		int bytesRead;
-		int total;
-		private final BluetoothSocket mmSocket;
-
+		
+		private BluetoothSocket mmSocket;
+		private BluetoothDevice device;
+		
 		public ConnectThread(BluetoothDevice device) {
 			BluetoothSocket tmp = null;
+			this.device=device;
 			// Get a BluetoothSocket to connect with the given BluetoothDevice
 			try {
 				// MY_UUID is the app's UUID string, also used by the server
@@ -233,15 +253,18 @@ public class MainActivity extends FragmentActivity {
 			try {
 				// Connect the device through the socket. This will block
 				// until it succeeds or throws an exception
-				mmSocket.connect();
+				if(!mmSocket.isConnected())
+					mmSocket.connect();
 
 			} catch (IOException e) {
 				Log.v(TAG, e.getMessage());
 				try {
-					mmSocket.close();
-				} catch (IOException closeException) {
+					mmSocket =(BluetoothSocket) device.getClass().getMethod("createRfcommSocket", new Class[] {int.class}).invoke(device,1);
+					mmSocket.connect();
+				} catch (Exception ex) {
+					Log.v(TAG, ex.getMessage());
 				}
-				return;
+				//return;
 			}
 			Log.d(TAG, "success to connect");
 			sock = mmSocket;
@@ -250,21 +273,32 @@ public class MainActivity extends FragmentActivity {
 
 		private void manageConnectedSocket(BluetoothSocket socket) {
 			byte[] buffer = new byte[1];
-
+			
+			DataOutputStream out=null;
 			OutputStream mOutStream = null;
 			try {
 				mOutStream = socket.getOutputStream();
+				out=new DataOutputStream(mOutStream);
 			} catch (IOException e1) {
 				// TODO Auto-generated catch block
 				Log.d(TAG, "cant get stream");
 				e1.printStackTrace();
 			}
-			buffer[0]='a';
-			try {
-				mOutStream.write(buffer);
-				mOutStream.flush();
-			} catch (IOException e) {
-				Log.e(TAG, e.getMessage());
+			while(true)
+			{
+				while(!queue.isEmpty())
+				{
+					EventData data=queue.remove(0);
+					Log.d(TAG, "send x:"+data.x+" y:"+data.y);
+					try {
+						out.writeInt(0);
+						out.writeFloat(data.x);
+						out.writeFloat(data.y);
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				}
 			}
 		}
 	}
