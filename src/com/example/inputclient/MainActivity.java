@@ -272,7 +272,6 @@ public class MainActivity extends FragmentActivity {
 		}
 
 		private void manageConnectedSocket(BluetoothSocket socket) {
-			byte[] buffer = new byte[1];
 			
 			DataOutputStream out=null;
 			OutputStream mOutStream = null;
@@ -284,6 +283,21 @@ public class MainActivity extends FragmentActivity {
 				Log.d(TAG, "cant get stream");
 				e1.printStackTrace();
 			}
+		/*	byte[] b=new byte[2];
+			b[0]=0;
+			b[1]=1;
+			try {
+				Log.d(TAG, "send data in Bluetooth");
+				for(int i=0;i<3;i++)
+				{
+					mOutStream.write(b);
+					mOutStream.flush();
+				}
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			*/
 			while(true)
 			{
 				while(!queue.isEmpty())
@@ -299,7 +313,7 @@ public class MainActivity extends FragmentActivity {
 						e.printStackTrace();
 					}
 				}
-			}
+			} 
 		}
 	}
 
