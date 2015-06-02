@@ -20,7 +20,9 @@ import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentTransaction;
 import android.util.Log;
+import android.view.Display;
 import android.view.MotionEvent;
+import android.view.WindowManager;
 import android.widget.TabHost;
 import android.widget.TabHost.TabSpec;
 import android.widget.Toast;
@@ -33,12 +35,15 @@ public class MainActivity extends FragmentActivity {
 	private BluetoothAdapter mBluetoothAdapter;
 	private UUID MY_UUID = UUID
 			.fromString("D04E3068-E15B-4482-8306-4CABFA1726E7");
-	private final static String CBT_SERVER_DEVICE_NAME = "IM-T100K";
+	private final static String CBT_SERVER_DEVICE_NAME = "Galaxy Nexus 2";
 	private BluetoothSocket sock;
 	
 	private ArrayList<EventData> queue=new ArrayList<MainActivity.EventData>();
+	private int width;
+	private int height;
 	
 	private class EventData{
+		int type;
 		float x;
 		float y;
 	}
@@ -46,8 +51,12 @@ public class MainActivity extends FragmentActivity {
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);
+		Display display=((WindowManager)getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
+		width=display.getWidth();
+		height=display.getHeight();
+		Log.d(TAG, "width : "+width+" height :"+height);
 		
-/*		mTabHost=(TabHost)findViewById(R.id.tabhost);
+		/*		mTabHost=(TabHost)findViewById(R.id.tabhost);
 		mTabHost.setup();
 		TabHost.OnTabChangeListener tabChangeListener = new TabHost.OnTabChangeListener() {
 			 
@@ -147,8 +156,20 @@ public class MainActivity extends FragmentActivity {
 		// TODO Auto-generated method stub
 		super.onTouchEvent(event);
 		EventData data=new EventData();
-		data.x=event.getX();
-		data.y=event.getY();
+		switch(event.getAction())
+		{
+		case MotionEvent.ACTION_DOWN:
+			data.type=0;
+			break;
+		case MotionEvent.ACTION_MOVE:
+			data.type=1;
+			break;
+		case MotionEvent.ACTION_UP:
+			data.type=2;
+			break;
+		}
+		data.x=event.getX()/width*720;
+		data.y=event.getY()/height*1280;
 		
 		Log.d(TAG, "touch x:"+data.x + "y:"+data.y);
 		queue.add(data);
@@ -305,9 +326,10 @@ public class MainActivity extends FragmentActivity {
 					EventData data=queue.remove(0);
 					Log.d(TAG, "send x:"+data.x+" y:"+data.y);
 					try {
-						out.writeInt(0);
+						out.writeInt(data.type);
 						out.writeFloat(data.x);
 						out.writeFloat(data.y);
+						out.flush();
 					} catch (IOException e) {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
